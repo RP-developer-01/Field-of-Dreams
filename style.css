@@ -1,0 +1,22 @@
+body {
+  font-family: Arial, sans-serif;
+  text-align: center;
+}
+
+h1 {
+  color: #333;
+}
+
+#word {
+  margin-top: 20px;
+  font-size: 24px;
+}
+
+#letters {
+  margin-top: 20px;
+  font-size: 20px;
+}
+
+#input {
+  margin-top: 20px;
+}
