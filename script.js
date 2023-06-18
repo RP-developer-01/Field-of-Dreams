@@ -1,210 +1,52 @@
-const WebSocket = require('ws');
+const ws = new WebSocket('ws://localhost:8080');
 
-// Создание WebSocket сервера
-const wss = new WebSocket.Server({ port: 8080 });
-
-// Словарь слов для игры
-const words = [
-    "автобус",
-    "ананас",
-    "апельсин",
-    "арбуз",
-    "багато",
-    "банан",
-    "буква",
-    "велосипед",
-    "вишня",
-    "вода",
-    "гірка",
-    "горобець",
-    "гранат",
-    "двері",
-    "дерево",
-    "дитина",
-    "дощ",
-    "жаба",
-    "життя",
-    "зебра",
-    "зірка",
-    "зошит",
-    "іграшка",
-    "ім'я",
-    "квітка",
-    "килим",
-    "кіт",
-    "ластівка",
-    "літо",
-    "льодяник",
-    "магазин",
-    "мак",
-    "мама",
-    "метро",
-    "місяць",
-    "ніж",
-    "носок",
-    "обличчя",
-    "океан",
-    "осінь",
-    "павук",
-    "папір",
-    "парк",
-    "пензлик",
-    "піраміда",
-    "ранок",
-    "риба",
-    "роза",
-    "скло",
-    "слово",
-    "сніг",
-    "сонце",
-    "сорока",
-    "телефон",
-    "трава",
-    "трамвай",
-    "україна",
-    "фіолетовий",
-    "футбол",
-    "хмара",
-    "цукерка",
-    "чайка",
-    "чарівник",
-    "шапка",
-    "школа",
-    "щастя",
-    "юність",
-    "яблуко",
-    "ялинка",
-    "ярмарок",
-    "ясли",
-    "аеропорт",
-    "багаж",
-    "басейн",
-    "берег",
-    "вагон",
-    "вечір",
-    "вітер",
-    "вовк",
-    "гарячий",
-    "гора",
-    "горщик",
-    "дім",
-    "довгий",
-    "дорога",
-    "дружба",
-    "жарти",
-    "жінка",
-    "зал",
-    "замок",
-    "запах",
-    "земля",
-    "інструмент",
-    "кава",
-    "картопля",
-    "каша",
-    "квітень",
-    "книжка",
-    "колір",
-    "лампа",
-    "листопад",
-    "літак",
-    "літо",
-    "майстерня",
-    "мільйон",
-    "міст",
-    "мішок",
-    "надія",
-    "навчання",
-    "ніч",
-    "обід",
-    "олівець",
-    "операція",
-    "острів",
-    "парашут",
-    "пахощі",
-    "підлога",
-    "повітря",
-    "пори року",
-    "пошта",
-    "принтер",
-    "радість",
-    "рибалка",
-    "світло",
-    "серце",
-    "сніжок",
-    "сокіл",
-    "стілець",
-    "тепло",
-    "тиждень",
-    "троянда",
-    "улюблений",
-    "фламінго",
-    "фонтан",
-    "хата",
-    "хліб",
-    "церква",
-    "червень",
-    "черепаха",
-    "шапка",
-    "шина",
-    "щастя",
-    "юність",
-    "ялинка",
-    "яхта"
-];
-
-
-// Случайный выбор слова для игры
-const selectedWord = words[Math.floor(Math.random() * words.length)];
-
-// Состояние игры
-let gameState = {
-    word: selectedWord,
-    guessedLetters: [],
-    currentPlayer: null
+ws.onopen = () => {
+    console.log('Connected to WebSocket server');
 };
 
-// Обработка подключения нового клиента
-wss.on('connection', (ws) => {
-    console.log('Новый клиент подключился');
+ws.onmessage = (event) => {
+    const gameState = JSON.parse(event.data);
+    updateGame(gameState);
+};
 
-    // Отправка текущего состояния игры при подключении
-    ws.send(JSON.stringify(gameState));
+document.getElementById('guessButton').addEventListener('click', guessLetter);
 
-    // Обработка сообщений от клиента
-    ws.on('message', (message) => {
-        const data = JSON.parse(message);
+function guessLetter() {
+    const letterInput = document.getElementById('letterInput');
+    const letter = letterInput.value;
 
-        // Проверка сообщения на тип
-        if (data.type === 'guess') {
-            const letter = data.letter;
+    if (letter !== '') {
+        const guess = {
+            type: 'guess',
+            letter: letter
+        };
 
-            // Проверка, является ли игрок текущим игроком
-            if (gameState.currentPlayer === ws) {
-                // Обновление состояния игры
-                gameState.guessedLetters.push(letter);
-                gameState.currentPlayer = getNextPlayer(ws);
+        ws.send(JSON.stringify(guess));
 
-                // Отправка обновленного состояния игры всем клиентам
-                wss.clients.forEach((client) => {
-                    client.send(JSON.stringify(gameState));
-                });
-            }
-        }
+        // Clear input field after sending
+        letterInput.value = '';
+    }
+}
+
+function updateGame(gameState) {
+    const wordElement = document.getElementById('word');
+    const guessedLettersElement = document.getElementById('guessed-letters');
+
+    // Clear elements before updating
+    wordElement.innerHTML = '';
+    guessedLettersElement.innerHTML = '';
+
+    // Display guessed letters
+    gameState.word.split('').forEach((letter) => {
+        const span = document.createElement('span');
+        span.textContent = gameState.guessedLetters.includes(letter) ? letter : '_';
+        wordElement.appendChild(span);
     });
 
-    // Обработка отключения клиента
-    ws.on('close', () => {
-        console.log('Клиент отключился');
-        if (gameState.currentPlayer === ws) {
-            gameState.currentPlayer = getNextPlayer(ws);
-        }
+    // Display guessed letters
+    gameState.guessedLetters.forEach((letter) => {
+        const span = document.createElement('span');
+        span.textContent = letter;
+        guessedLettersElement.appendChild(span);
     });
-});
-
-// Функция для получения следующего игрока
-function getNextPlayer(currentPlayer) {
-    const clients = Array.from(wss.clients);
-    const currentPlayerIndex = clients.indexOf(currentPlayer);
-    const nextPlayerIndex = (currentPlayerIndex + 1) % clients.length;
-    return clients[nextPlayerIndex];
 }

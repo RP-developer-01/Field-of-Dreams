@@ -1,31 +1,35 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
-    <title>Поле чудес</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="style.css">
+    <title>Hangman Game</title>
 </head>
 
 <body>
-    <h1>Поле чудес</h1>
-    <div id="word"></div>
-    <div id="guessed-letters"></div>
-    <div id="input">
-        <input type="text" id="letterInput">
-        <button onclick="guessLetter()">Угадать</button>
+    <h1>Hangman Game</h1>
+    <div id="game">
+        <div id="word"></div>
+        <div id="guessed-letters"></div>
+        <input type="text" id="letterInput" placeholder="Guess a letter">
+        <button id="guessButton">Guess</button>
     </div>
+
     <script>
-        const ws = new WebSocket('ws://localhost:8080');
+        const ws = new WebSocket('wss://your-netlify-server-url');
 
         ws.onopen = () => {
-            console.log('Соединение установлено');
+            console.log('Connected to WebSocket server');
         };
 
         ws.onmessage = (event) => {
             const gameState = JSON.parse(event.data);
             updateGame(gameState);
         };
+
+        document.getElementById('guessButton').addEventListener('click', guessLetter);
 
         function guessLetter() {
             const letterInput = document.getElementById('letterInput');
@@ -39,7 +43,7 @@
 
                 ws.send(JSON.stringify(guess));
 
-                // Очистка поля ввода после отправки
+                // Clear input field after sending
                 letterInput.value = '';
             }
         }
@@ -48,18 +52,18 @@
             const wordElement = document.getElementById('word');
             const guessedLettersElement = document.getElementById('guessed-letters');
 
-            // Очистка элементов перед обновлением
+            // Clear elements before updating
             wordElement.innerHTML = '';
             guessedLettersElement.innerHTML = '';
 
-            // Отображение угаданных букв
+            // Display guessed letters
             gameState.word.split('').forEach((letter) => {
                 const span = document.createElement('span');
                 span.textContent = gameState.guessedLetters.includes(letter) ? letter : '_';
                 wordElement.appendChild(span);
             });
 
-            // Отображение угаданных букв
+            // Display guessed letters
             gameState.guessedLetters.forEach((letter) => {
                 const span = document.createElement('span');
                 span.textContent = letter;
