@@ -2,19 +2,71 @@
 <html>
 
 <head>
-    <title>Игра "Поле чудес"</title>
-    <link rel="stylesheet" type="text/css" href="style.css">
+    <meta charset="UTF-8">
+    <title>Поле чудес</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <h1>Игра "Поле чудес"</h1>
+    <h1>Поле чудес</h1>
     <div id="word"></div>
-    <div id="letters"></div>
+    <div id="guessed-letters"></div>
     <div id="input">
         <input type="text" id="letterInput">
         <button onclick="guessLetter()">Угадать</button>
     </div>
-    <script src="script.js"></script>
+    <script>
+        const ws = new WebSocket('ws://localhost:8080');
+
+        ws.onopen = () => {
+            console.log('Соединение установлено');
+        };
+
+        ws.onmessage = (event) => {
+            const gameState = JSON.parse(event.data);
+            updateGame(gameState);
+        };
+
+        function guessLetter() {
+            const letterInput = document.getElementById('letterInput');
+            const letter = letterInput.value;
+
+            if (letter !== '') {
+                const guess = {
+                    type: 'guess',
+                    letter: letter
+                };
+
+                ws.send(JSON.stringify(guess));
+
+                // Очистка поля ввода после отправки
+                letterInput.value = '';
+            }
+        }
+
+        function updateGame(gameState) {
+            const wordElement = document.getElementById('word');
+            const guessedLettersElement = document.getElementById('guessed-letters');
+
+            // Очистка элементов перед обновлением
+            wordElement.innerHTML = '';
+            guessedLettersElement.innerHTML = '';
+
+            // Отображение угаданных букв
+            gameState.word.split('').forEach((letter) => {
+                const span = document.createElement('span');
+                span.textContent = gameState.guessedLetters.includes(letter) ? letter : '_';
+                wordElement.appendChild(span);
+            });
+
+            // Отображение угаданных букв
+            gameState.guessedLetters.forEach((letter) => {
+                const span = document.createElement('span');
+                span.textContent = letter;
+                guessedLettersElement.appendChild(span);
+            });
+        }
+    </script>
 </body>
 
 </html>

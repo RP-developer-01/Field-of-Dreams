@@ -1,4 +1,9 @@
-// Список слов для угадывания
+const WebSocket = require('ws');
+
+// Создание WebSocket сервера
+const wss = new WebSocket.Server({ port: 8080 });
+
+// Словарь слов для игры
 const words = [
     "автобус",
     "ананас",
@@ -148,133 +153,58 @@ const words = [
 ];
 
 
-// Выбор случайного слова из списка
-var randomIndex = Math.floor(Math.random() * words.length);
-var selectedWord = words[randomIndex];
+// Случайный выбор слова для игры
+const selectedWord = words[Math.floor(Math.random() * words.length)];
 
-// Список игроков
-var players = [];
+// Состояние игры
+let gameState = {
+    word: selectedWord,
+    guessedLetters: [],
+    currentPlayer: null
+};
 
-// Индекс текущего игрока
-var currentPlayerIndex = 0;
+// Обработка подключения нового клиента
+wss.on('connection', (ws) => {
+    console.log('Новый клиент подключился');
 
-// Переменные для угаданных и неправильных букв
-var guessedLetters = [];
-var wrongLetters = [];
+    // Отправка текущего состояния игры при подключении
+    ws.send(JSON.stringify(gameState));
 
-// Отображение слова на игровом поле
-function displayWord() {
-    var wordContainer = document.getElementById("word");
-    wordContainer.innerHTML = "";
+    // Обработка сообщений от клиента
+    ws.on('message', (message) => {
+        const data = JSON.parse(message);
 
-    var wordLength = selectedWord.length;
-    var wordInfo = document.createElement("p");
-    wordInfo.textContent = "Количество букв: " + wordLength;
-    wordContainer.appendChild(wordInfo);
+        // Проверка сообщения на тип
+        if (data.type === 'guess') {
+            const letter = data.letter;
 
-    for (var i = 0; i < wordLength; i++) {
-        var letter = selectedWord[i];
-        var placeholder = guessedLetters.includes(letter) ? letter : "_";
-        var letterSpan = document.createElement("span");
-        letterSpan.textContent = placeholder + " ";
-        wordContainer.appendChild(letterSpan);
-    }
-}
+            // Проверка, является ли игрок текущим игроком
+            if (gameState.currentPlayer === ws) {
+                // Обновление состояния игры
+                gameState.guessedLetters.push(letter);
+                gameState.currentPlayer = getNextPlayer(ws);
 
-// Обновление отображения угаданных и неправильных букв
-function updateLetters() {
-    var lettersContainer = document.getElementById("letters");
-    lettersContainer.innerHTML = "";
-
-    var guessedLettersText = document.createElement("p");
-    guessedLettersText.textContent = "Угаданные буквы: " + guessedLetters.join(", ");
-    lettersContainer.appendChild(guessedLettersText);
-
-    var wrongLettersText = document.createElement("p");
-    wrongLettersText.textContent = "Неправильные буквы: " + wrongLetters.join(", ");
-    lettersContainer.appendChild(wrongLettersText);
-}
-
-// Обработчик события для угадывания буквы
-function guessLetter() {
-    var letterInput = document.getElementById("letterInput");
-    var letter = letterInput.value.toLowerCase();
-
-    if (!letter || letter.length !== 1) {
-        return;
-    }
-
-    if (guessedLetters.includes(letter) || wrongLetters.includes(letter)) {
-        alert("Вы уже угадывали эту букву!");
-        return;
-    }
-
-    if (selectedWord.includes(letter)) {
-        guessedLetters.push(letter);
-        displayWord();
-
-        if (!selectedWord.split("").some(function (char) {
-            return !guessedLetters.includes(char);
-        })) {
-            alert("Поздравляем! Игрок " + players[currentPlayerIndex] + " угадал все буквы слова: " + selectedWord);
+                // Отправка обновленного состояния игры всем клиентам
+                wss.clients.forEach((client) => {
+                    client.send(JSON.stringify(gameState));
+                });
+            }
         }
-    } else {
-        wrongLetters.push(letter);
-        updateLetters();
-
-        if (wrongLetters.length >= 6) {
-            alert("К сожалению, вы проиграли. Загаданное слово было: " + selectedWord);
-        } else {
-            alert("Неправильно! Следующий игрок: " + getNextPlayerName());
-        }
-    }
-
-    letterInput.value = "";
-    letterInput.focus();
-}
-
-// Функция для получения имени следующего игрока
-function getNextPlayerName() {
-    currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
-    return players[currentPlayerIndex];
-}
-
-// Функция для начала игры
-function startGame() {
-    var playersInput = document.getElementById("playersInput");
-    var playersList = playersInput.value.split(",").map(function (player) {
-        return player.trim();
     });
 
-    if (playersList.length < 2) {
-        alert("Введите как минимум два имени игроков!");
-        return;
-    }
+    // Обработка отключения клиента
+    ws.on('close', () => {
+        console.log('Клиент отключился');
+        if (gameState.currentPlayer === ws) {
+            gameState.currentPlayer = getNextPlayer(ws);
+        }
+    });
+});
 
-    players = playersList;
-    playersInput.disabled = true;
-
-    var currentPlayerText = document.createElement("p");
-    currentPlayerText.textContent = "Текущий игрок: " + players[currentPlayerIndex];
-    var wordContainer = document.getElementById("word");
-    wordContainer.insertBefore(currentPlayerText, wordContainer.firstChild);
-
-    displayWord();
-    updateLetters();
+// Функция для получения следующего игрока
+function getNextPlayer(currentPlayer) {
+    const clients = Array.from(wss.clients);
+    const currentPlayerIndex = clients.indexOf(currentPlayer);
+    const nextPlayerIndex = (currentPlayerIndex + 1) % clients.length;
+    return clients[nextPlayerIndex];
 }
-
-// Начало игры
-window.onload = function () {
-    var startButton = document.createElement("button");
-    startButton.textContent = "Начать игру";
-    startButton.onclick = startGame;
-
-    var playersInput = document.createElement("input");
-    playersInput.type = "text";
-    playersInput.placeholder = "Введите имена игроков через запятую";
-    playersInput.id = "playersInput";
-
-    var inputContainer = document.getElementById("input");
-    inputContainer.appendChild(playersInput);
-    inputContainer.appendChild(startButton);
-};
